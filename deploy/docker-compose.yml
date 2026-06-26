@@ -1,0 +1,37 @@
+# ================================================================
+#  we-mp-rss — 公众号 → RSS/API/Webhook（官方镜像，不改源码）
+#  仓库: https://github.com/rachelos/we-mp-rss   默认端口 8001
+#
+#  作用：扫码授权后定时抓取指定公众号新文章，并通过 CUSTOM_WEBHOOK
+#        把新文章 POST 到本系统后端 /ingest?source=wechat。
+#
+#  ⚠️ 防封硬约束：抓取间隔 ≥ 30 分钟。SPAN_INTERVAL 单位为秒，
+#     这里设 1800（30min）。"实时感"靠 Webhook 推送，而非缩短间隔。
+# ================================================================
+services:
+  we-mp-rss:
+    image: ghcr.io/rachelos/we-mp-rss:latest   # 国内拉不动可换 docker.1ms.run/rachelos/we-mp-rss:latest
+    container_name: we-mp-rss
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./wemp-data:/app/data                  # 数据库与登录态持久化
+      # 如需用 config.yaml 覆盖更多项，取消下一行注释并放置该文件：
+      # - ./we-mp-rss.config.yaml:/app/config.yaml
+    environment:
+      # ---- 防封：抓取间隔 ≥30min ----
+      SPAN_INTERVAL: "1800"                     # 任务执行间隔(秒) = 30 分钟
+      GATHER_CONTENT_AUTO_INTERVAL: "30"        # 未采内容自动检查(分钟)
+      MAX_PAGE: "3"                             # 每次最多翻几页，保守
+      ENABLE_JOB: "True"                        # 启用定时任务
+      GATHER_MODEL: "web"
+      # ---- Webhook：新文章推到本系统后端 ----
+      # host.docker.internal 指向宿主机（Docker Desktop Win/Mac 可用；
+      # Linux 用宿主局域网 IP，或把 backend 也加进同一 compose 网络用服务名）
+      CUSTOM_WEBHOOK: "http://host.docker.internal:8000/ingest?source=wechat"
+      WEBHOOK_CONTENT_FORMAT: "html"            # 正文以 HTML 发送，后端会清洗成纯文本
+      # ---- 数据库（默认 SQLite，落在 /app/data）----
+      # DB: "mysql+pymysql://user:pass@host/db"  # 需要 MySQL 时再开
+    extra_hosts:
+      - "host.docker.internal:host-gateway"     # 让 Linux 上也能解析 host.docker.internal

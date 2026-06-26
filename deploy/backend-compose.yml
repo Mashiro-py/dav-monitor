@@ -1,0 +1,37 @@
+# ================================================================
+#  dav-monitor 后端（FastAPI）容器化部署
+#  - 监听 0.0.0.0:8000，发布到宿主机 8000，供同机 we-mp-rss 容器访问
+#  - SQLite 落在命名卷 dav_backend_data，重启不丢
+#
+#  用法（在仓库根目录执行）：
+#    sudo docker compose -f deploy/backend-compose.yml up -d --build
+#
+#  环境变量（可选）：在 deploy/.env 里配置 INGEST_TOKEN / CORS_ORIGINS。
+#  不配也能跑（无 token 校验、CORS 放开）。
+# ================================================================
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: dav-monitor-backend:latest
+    container_name: dav-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"                      # 宿主机 0.0.0.0:8000 → 容器 8000
+    environment:
+      # SQLite 放到挂载卷里（四个斜杠 = 绝对路径 /data/app.db），持久化
+      DB_URL: "sqlite:////data/app.db"
+      INGEST_TOKEN: "${INGEST_TOKEN:-}"  # 留空=不校验；设了则 /ingest* 需带 X-Ingest-Token
+      CORS_ORIGINS: "${CORS_ORIGINS:-*}" # 前端跨域来源，默认放开
+    volumes:
+      - dav_backend_data:/data           # 数据库持久化
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  dav_backend_data:

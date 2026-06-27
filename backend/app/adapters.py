@@ -135,31 +135,40 @@ def canonical_wechat_url(url: str) -> str:
         return url.strip()
 
 
-def from_wemp(p: dict) -> dict:
-    """we-mp-rss Webhook 专用适配器（对应 /ingest/wemp 端点）。
+# 从任意文本里提取微信公众号文章链接（env CUSTOM_WEBHOOK 的 content 是 markdown，链接嵌在里面）
+WEIXIN_URL_RE = re.compile(r"https?://mp\.weixin\.qq\.com/[^\s\"'<>)\]]+")
 
-    期望的推送 JSON（你在 we-mp-rss 消息模板里对齐这些字段名即可）：
-      {
-        "title":        "文章标题",
-        "url":          "https://mp.weixin.qq.com/s/xxxx",   原文链接
-        "account_name": "公众号名称",
-        "publish_time": 1718512200,   或 "2026-06-16 10:00:00"  （Unix秒/毫秒/字符串均可）
-        "summary":      "摘要或描述"
-      }
-    去重：按文章原文链接（规范化后取 sn，等价于 URL 去重），source 固定 wechat。
-    兼容若干别名字段，少填也不会报错。
+
+def from_wemp(p: dict, default_account: str = "") -> dict:
+    """把单篇 we-mp-rss 文章对象映射为统一结构。兼容三种来源形态：
+      1) 自定义模板(扁平)：{title,url,account_name,publish_time,summary}
+      2) 消息任务默认模板(单篇)：{title,url,description,publish_time,pic_url,mp_id,...}
+      3) env CUSTOM_WEBHOOK：{title, content}（content 为 markdown，从中正则提取文章链接）
+    去重优先按文章 URL（规范化取 sn）；env 方式若无链接则退化为 账号+标题 哈希。
     """
     if not isinstance(p, dict):
         return None
     title = (p.get("title") or "").strip()
     url = (p.get("url") or p.get("link") or p.get("original_url") or "").strip()
-    account = (p.get("account_name") or p.get("account") or p.get("mp_name")
-               or p.get("nickname") or "").strip()
     raw_summary = (p.get("summary") or p.get("description")
-                   or p.get("content") or p.get("digest") or "")
+                   or p.get("digest") or p.get("content") or p.get("content_html") or "")
+    # env 方式没有独立 url 字段 → 从 content/标题等文本里捞 mp.weixin 链接
+    if not url:
+        blob = " ".join(str(p.get(k) or "") for k in ("content", "description", "summary", "digest", "title"))
+        m = WEIXIN_URL_RE.search(blob)
+        if m:
+            url = m.group(0).rstrip(").，。")
+    account = (p.get("account_name") or p.get("account") or p.get("mp_name")
+               or p.get("nickname") or default_account or "").strip()
     sn = _wx_sn(url)
     canon = canonical_wechat_url(url)
     media = [p[k] for k in ("cover", "pic_url", "thumb", "thumb_url", "image") if p.get(k)]
+    if url:
+        dedup = make_dedup_key("wechat", sn, canon)          # 按 URL（sn）去重
+    elif title or account:
+        dedup = "wechat:txt:" + hashlib.sha1((account + "|" + title).encode("utf-8")).hexdigest()  # 退化
+    else:
+        return None
     return {
         "source": "wechat",
         "account_name": account,
@@ -174,10 +183,40 @@ def from_wemp(p: dict) -> dict:
         "media_urls": media,
         "stats": {},
         "raw_json": p,
-        # sn 存在 → "wechat:{sn}"（与 _from_wechat 一致，跨端点也不会重复）；
-        # 无 sn → 退化为规范化 URL 的哈希，仍是按 URL 去重。
-        "dedup_key": make_dedup_key("wechat", sn, canon),
+        "dedup_key": dedup,
     }
+
+
+def normalize_wemp(body):
+    """把 /ingest/wemp 收到的请求体展开为 unified 列表，兼容多种 we-mp-rss 形态：
+      - 单篇对象（扁平 / {title,content}）
+      - 嵌套 {feed:{name|mp_name}, articles:[...]}（消息任务默认模板）
+      - 以及上述的数组
+    """
+    out = []
+
+    def handle_one(obj):
+        if not isinstance(obj, dict):
+            return
+        arts = obj.get("articles")
+        if isinstance(arts, list):  # 嵌套：feed + articles[]
+            feed = obj.get("feed") if isinstance(obj.get("feed"), dict) else {}
+            acc = (feed.get("name") or feed.get("mp_name") or feed.get("title") or "").strip()
+            for a in arts:
+                u = from_wemp(a, default_account=acc)
+                if u:
+                    out.append(u)
+            return
+        u = from_wemp(obj)
+        if u:
+            out.append(u)
+
+    if isinstance(body, list):
+        for b in body:
+            handle_one(b)
+    else:
+        handle_one(body)
+    return [u for u in out if u and u.get("dedup_key")]
 
 
 def _from_wechat(obj: dict) -> dict:

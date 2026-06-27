@@ -73,22 +73,17 @@ async def ingest(request: Request, source: str = Query(default=None),
 async def ingest_wemp(request: Request, db: Session = Depends(get_db), _=Depends(_check_wemp_token)):
     """we-mp-rss 公众号 Webhook 专用入口。
 
-    与 /ingest 分开，专门适配 we-mp-rss 的消息模板格式（见 adapters.from_wemp）。
-    支持单篇对象或数组；source 固定 wechat；按文章 URL 去重；复用现有入库逻辑。
-    3 个实例推送同一文章只会入库一次。
+    与 /ingest 分开，专门适配 we-mp-rss。兼容三种形态（见 adapters.normalize_wemp）：
+    自定义扁平模板 / 消息任务默认嵌套模板(feed+articles) / env CUSTOM_WEBHOOK 的 {title,content}。
+    source 固定 wechat；优先按文章 URL 去重；3 个实例推同一文章只入库一次。
     """
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="invalid JSON body")
-    raw_items = _extract_list(body)
-    unified = []
-    for it in raw_items:
-        u = adapters.from_wemp(it)
-        if u and u.get("original_url"):   # 没链接无法去重，跳过
-            unified.append(u)
+    unified = adapters.normalize_wemp(body)
     result = crud.ingest(db, unified)
-    result["received"] = len(raw_items)
+    result["received"] = len(unified)
     return {"ok": 1, **result}
 
 

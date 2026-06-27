@@ -1,0 +1,21 @@
+# ================================================================
+#  dav-monitor 前端（Vue3 build → nginx 托管 + 反代后端 /api）
+#  - 对外端口 8080（宿主机）→ 容器 80
+#  - 浏览器访问 http://<公网IP>:8080，前端调 /api 由 nginx 反代到后端 8000
+#  - 不与后端(8000)、we-mp-rss(8001-8003) 冲突
+#
+#  用法（仓库根目录执行）：
+#    sudo docker compose -f deploy/frontend-compose.yml up -d --build
+# ================================================================
+services:
+  frontend:
+    build:
+      context: ..                          # 仓库根（构建需要 frontend/ 和 deploy/nginx 配置）
+      dockerfile: deploy/frontend.Dockerfile
+    image: dav-monitor-frontend:latest
+    container_name: dav-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"                          # 对外访问端口 8080 → 容器 80
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # 让 nginx 容器能访问宿主机的后端 8000

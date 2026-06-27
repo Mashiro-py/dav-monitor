@@ -10,7 +10,11 @@ except Exception:
 DB_URL = os.getenv("DB_URL", "sqlite:///./data.db")
 
 # /ingest 共享密钥；为空表示不校验（开发）。生产建议设置，插件/Webhook 带 X-Ingest-Token。
+# /ingest（插件微博/X，走公网）的校验 token；为空=不校验
 INGEST_TOKEN = os.getenv("INGEST_TOKEN", "").strip()
+# /ingest/wemp（公众号 webhook，同机内网）的独立 token；为空=不校验。
+# 与 INGEST_TOKEN 解耦：给插件设了 token 也不会影响免 token 的公众号链路。
+WEMP_TOKEN = os.getenv("WEMP_TOKEN", "").strip()
 
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 

@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, Depends, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from .config import CORS_ORIGINS, INGEST_TOKEN
+from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN
 from .db import get_db, init_db
 from . import adapters, crud
 
@@ -27,8 +27,16 @@ init_db()
 
 
 def _check_token(x_ingest_token: str = Header(default="")):
+    """/ingest（插件，公网）校验。INGEST_TOKEN 为空则放行。"""
     if INGEST_TOKEN and x_ingest_token != INGEST_TOKEN:
         raise HTTPException(status_code=401, detail="invalid ingest token")
+
+
+def _check_wemp_token(x_ingest_token: str = Header(default="")):
+    """/ingest/wemp（公众号 webhook，内网）独立校验。
+    WEMP_TOKEN 为空则放行——即使设了 INGEST_TOKEN，公众号链路也不受影响。"""
+    if WEMP_TOKEN and x_ingest_token != WEMP_TOKEN:
+        raise HTTPException(status_code=401, detail="invalid wemp token")
 
 
 def _extract_list(body):
@@ -62,7 +70,7 @@ async def ingest(request: Request, source: str = Query(default=None),
 
 
 @app.post("/ingest/wemp")
-async def ingest_wemp(request: Request, db: Session = Depends(get_db), _=Depends(_check_token)):
+async def ingest_wemp(request: Request, db: Session = Depends(get_db), _=Depends(_check_wemp_token)):
     """we-mp-rss 公众号 Webhook 专用入口。
 
     与 /ingest 分开，专门适配 we-mp-rss 的消息模板格式（见 adapters.from_wemp）。

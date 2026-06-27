@@ -22,7 +22,8 @@ services:
     environment:
       # SQLite 放到挂载卷里（四个斜杠 = 绝对路径 /data/app.db），持久化
       DB_URL: "sqlite:////data/app.db"
-      INGEST_TOKEN: "${INGEST_TOKEN:-}"  # 留空=不校验；设了则 /ingest* 需带 X-Ingest-Token
+      INGEST_TOKEN: "${INGEST_TOKEN:-}"  # 留空=不校验；设了则【仅】/ingest（插件，公网）需带 X-Ingest-Token
+      WEMP_TOKEN: "${WEMP_TOKEN:-}"      # 留空=不校验；公众号 webhook 独立 token，与 INGEST_TOKEN 互不影响
       CORS_ORIGINS: "${CORS_ORIGINS:-*}" # 前端跨域来源，默认放开
     volumes:
       - dav_backend_data:/data           # 数据库持久化

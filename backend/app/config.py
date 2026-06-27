@@ -21,3 +21,13 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if 
 # AI 分析（Step 7，可选）
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANALYZE_MODEL = os.getenv("ANALYZE_MODEL", "claude-haiku-4-5-20251001").strip()
+
+# ===== we-mp-rss 主动拉取同步 =====
+# 要遍历的 we-mp-rss 实例基址（逗号分隔）。容器内经宿主 IP 可达。
+WEMP_INSTANCES = [u.strip().rstrip("/") for u in os.getenv(
+    "WEMP_INSTANCES",
+    "http://172.22.7.189:8001,http://172.22.7.189:8002,http://172.22.7.189:8003",
+).split(",") if u.strip()]
+WEMP_RSS_LIMIT = int(os.getenv("WEMP_RSS_LIMIT", "100"))          # 每个 feed 取多少篇
+WEMP_SYNC_ENABLED = os.getenv("WEMP_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+WEMP_SYNC_INTERVAL_MIN = int(os.getenv("WEMP_SYNC_INTERVAL_MIN", "20"))  # 定时间隔(分钟)

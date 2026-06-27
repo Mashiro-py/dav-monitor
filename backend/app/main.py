@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN
 from .db import get_db, init_db
-from . import adapters, crud
+from . import adapters, crud, wemp_sync
 
 app = FastAPI(title="大V动态统一后端", version="1.0")
 
@@ -24,6 +24,12 @@ app.add_middleware(
 
 # 建表：导入即执行（uvicorn / 测试均生效），幂等
 init_db()
+
+
+@app.on_event("startup")
+async def _startup():
+    # 启动 we-mp-rss 定时拉取（TestClient 不触发 startup，不影响测试）
+    wemp_sync.start_scheduler()
 
 
 def _check_token(x_ingest_token: str = Header(default="")):
@@ -85,6 +91,13 @@ async def ingest_wemp(request: Request, db: Session = Depends(get_db), _=Depends
     result = crud.ingest(db, unified)
     result["received"] = len(unified)
     return {"ok": 1, **result}
+
+
+@app.post("/sync/wemp")
+async def sync_wemp(_=Depends(_check_token)):
+    """手动触发一次 we-mp-rss 全量拉取+入库（存量+增量）。
+    用 INGEST_TOKEN 保护（设了就要带 X-Ingest-Token）。返回拉取统计。"""
+    return {"ok": 1, **(await wemp_sync.run_sync_async())}
 
 
 @app.get("/api/posts")

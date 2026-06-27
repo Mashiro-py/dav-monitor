@@ -19,7 +19,8 @@ from .config import (WEMP_INSTANCES, WEMP_RSS_LIMIT,
 from .db import SessionLocal
 from . import adapters, crud
 
-log = logging.getLogger("wemp_sync")
+# 用 uvicorn 的 logger，确保 INFO 也能出现在 docker logs（自建 logger 的 INFO 默认被吞）
+log = logging.getLogger("uvicorn.error")
 
 FEED_ID_RE = re.compile(r"MP_WXS_[A-Za-z0-9_]+")
 HTTP_TIMEOUT = 20.0

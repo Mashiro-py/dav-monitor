@@ -153,6 +153,9 @@ def from_wemp(p: dict, default_account: str = "") -> dict:
     url = (p.get("url") or p.get("link") or p.get("original_url") or "").strip()
     raw_summary = (p.get("summary") or p.get("description")
                    or p.get("digest") or p.get("content") or p.get("content_html") or "")
+    # 富文本：优先 content_html（content:encoded），退化到富 summary/content
+    content_html = (p.get("content_html") or p.get("content")
+                    or p.get("description") or raw_summary or "")
     # env 方式没有独立 url 字段 → 从 content/标题等文本里捞 mp.weixin 链接
     if not url:
         blob = " ".join(str(p.get(k) or "") for k in ("content", "description", "summary", "digest", "title"))
@@ -177,6 +180,7 @@ def from_wemp(p: dict, default_account: str = "") -> dict:
         "author_url": p.get("mp_url") or "",
         "title": title,
         "content": strip_html(raw_summary),
+        "content_html": content_html,
         "publish_time": parse_dt(p.get("publish_time") or p.get("pubDate")
                                  or p.get("time") or p.get("created_at")),
         "original_url": url,
@@ -223,8 +227,9 @@ def normalize_wemp(body):
 def _from_wechat(obj: dict) -> dict:
     title = obj.get("title") or ""
     url = obj.get("url") or obj.get("link") or obj.get("original_url") or ""
-    content = strip_html(obj.get("content") or obj.get("content_html")
-                         or obj.get("description") or obj.get("summary") or "")
+    content_raw = (obj.get("content_html") or obj.get("content")
+                   or obj.get("description") or obj.get("summary") or "")
+    content = strip_html(content_raw)
     feed = obj.get("feed") if isinstance(obj.get("feed"), dict) else {}
     account = (obj.get("mp_name") or obj.get("account") or obj.get("account_name")
                or obj.get("nickname") or feed.get("title") or "")
@@ -245,6 +250,7 @@ def _from_wechat(obj: dict) -> dict:
         "author_url": obj.get("mp_url") or feed.get("url") or "",
         "title": title,
         "content": content,
+        "content_html": content_raw,
         "publish_time": parse_dt(obj.get("publish_time") or obj.get("pubDate")
                                  or obj.get("published") or obj.get("created_at")),
         "original_url": url,

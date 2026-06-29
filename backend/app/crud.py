@@ -40,9 +40,31 @@ def post_to_dict(p: Post) -> dict:
     }
 
 
+def _upgrade_existing(db, post: Post, u: dict) -> bool:
+    """重复入库时补全老行的空字段（主要是 content_html / media_urls）。返回是否有更新。"""
+    changed = False
+    new_html = (u.get("content_html") or "").strip()
+    if new_html and not (post.content_html or "").strip():
+        post.content_html = new_html
+        changed = True
+    # 老行没有图但新数据有 → 补媒体
+    new_media = u.get("media_urls") or []
+    if new_media and not _loads(post.media_urls, []):
+        post.media_urls = json.dumps(new_media, ensure_ascii=False)
+        changed = True
+    if changed:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            return False
+    return changed
+
+
 def ingest(db, unified_list) -> dict:
-    """批量入库，dedup_key 去重。返回 {inserted, duplicated, invalid}。"""
-    inserted = duplicated = invalid = 0
+    """批量入库，dedup_key 去重。返回 {inserted, duplicated, updated, invalid}。
+    遇到重复时若老行缺正文(content_html)/媒体，用新数据补全（回填）。"""
+    inserted = duplicated = updated = invalid = 0
     seen_in_batch = set()
     for u in unified_list:
         if not u or not u.get("dedup_key") or not u.get("original_url"):
@@ -53,8 +75,12 @@ def ingest(db, unified_list) -> dict:
             duplicated += 1
             continue
         seen_in_batch.add(key)
-        if db.execute(select(Post.id).where(Post.dedup_key == key)).first():
-            duplicated += 1
+        existing = db.execute(select(Post).where(Post.dedup_key == key)).scalar_one_or_none()
+        if existing is not None:
+            if _upgrade_existing(db, existing, u):
+                updated += 1
+            else:
+                duplicated += 1
             continue
         now = _now_utc()
         p = Post(
@@ -84,7 +110,8 @@ def ingest(db, unified_list) -> dict:
         except IntegrityError:
             db.rollback()  # 并发下唯一键冲突 → 当重复
             duplicated += 1
-    return {"inserted": inserted, "duplicated": duplicated, "invalid": invalid}
+    return {"inserted": inserted, "duplicated": duplicated,
+            "updated": updated, "invalid": invalid}
 
 
 def query_posts(db, source=None, sentiment=None, keyword=None,

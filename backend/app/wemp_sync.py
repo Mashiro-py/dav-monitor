@@ -48,12 +48,23 @@ def parse_articles(feed_xml: str):
         if e.get("enclosures"):
             enc = e.enclosures[0]
             pic = enc.get("href") or enc.get("url") or ""
+        # content:encoded（全文 HTML）优先，退化到 summary/description
+        html = ""
+        if e.get("content"):
+            try:
+                html = e.content[0].get("value") or ""
+            except Exception:
+                html = ""
+        summary = e.get("summary") or e.get("description") or ""
+        if not html:
+            html = summary
         arts.append({
             "title": (e.get("title") or "").strip(),
             "url": link,                                   # → original_url（取 sn 去重）
             "mp_name": account,                            # → account_name
             "publish_time": e.get("published") or e.get("updated") or "",  # RFC822 → parse_dt
-            "description": e.get("summary") or e.get("description") or "",  # → content
+            "description": summary,                         # → content（纯文本由 strip_html 提取）
+            "content_html": html,                          # → content_html（富文本展示）
             "pic_url": pic,                                # → media_urls
         })
     return account, arts

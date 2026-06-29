@@ -18,7 +18,15 @@ const totalPages = computed(() => Math.max(1, Math.ceil((props.result.total || 0
 const page = computed(() => props.result.page || 1)
 
 function go(p) { if (p >= 1 && p <= totalPages.value) emit('page', p) }
-function fmt(t) { return t ? String(t).replace('T', ' ').replace('Z', '').slice(0, 16) : '' }
+function fmt(t) {
+  if (!t) return ''
+  // 后端按 UTC 存（带 Z）；统一换算成北京时间(UTC+8)展示，不受浏览器本地时区影响
+  const d = new Date(t)
+  if (isNaN(d.getTime())) return String(t).replace('T', ' ').replace('Z', '').slice(0, 16)
+  const bj = new Date(d.getTime() + 8 * 3600 * 1000)
+  const p = n => String(n).padStart(2, '0')
+  return `${bj.getUTCFullYear()}-${p(bj.getUTCMonth() + 1)}-${p(bj.getUTCDate())} ${p(bj.getUTCHours())}:${p(bj.getUTCMinutes())}`
+}
 function sclass(s) { return 's-' + (s || 'unknown') }
 const aiSummary = computed(() => (props.stats.ai_summary || '').trim())
 

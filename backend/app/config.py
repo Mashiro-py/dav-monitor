@@ -31,3 +31,6 @@ WEMP_INSTANCES = [u.strip().rstrip("/") for u in os.getenv(
 WEMP_RSS_LIMIT = int(os.getenv("WEMP_RSS_LIMIT", "100"))          # 每个 feed 取多少篇
 WEMP_SYNC_ENABLED = os.getenv("WEMP_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on")
 WEMP_SYNC_INTERVAL_MIN = int(os.getenv("WEMP_SYNC_INTERVAL_MIN", "20"))  # 定时间隔(分钟)
+
+# 公众号"全文"判定阈值：content_html 短于此长度（或为空）视为只有摘要、需插件补正文。
+WX_FULL_MIN = int(os.getenv("WX_FULL_MIN", "800"))

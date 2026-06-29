@@ -2,10 +2,11 @@
 import json
 from datetime import datetime, timezone, timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.exc import IntegrityError
 
 from .models import Post
+from . import adapters
 
 
 def _now_utc():
@@ -181,3 +182,58 @@ def get_stats(db) -> dict:
 def DB_IS_SQLITE():
     from .config import DB_URL
     return DB_URL.startswith("sqlite")
+
+
+# ===== 公众号正文补全（插件读 #js_content 富文本 → 覆盖摘要级 content_html） =====
+
+def wechat_pending(db, limit=50, min_len=800):
+    """返回缺全文的公众号文章：source=wechat、是 mp.weixin 文章链接、
+    且 content_html 为空或长度 < min_len（只有摘要）。按发布时间倒序。"""
+    too_short = or_(Post.content_html.is_(None),
+                    func.length(Post.content_html) < min_len)
+    rows = db.execute(
+        select(Post)
+        .where(and_(Post.source == "wechat",
+                    Post.original_url.like("%mp.weixin.qq.com/s%"),
+                    too_short))
+        .order_by(Post.publish_time.desc().nullslast(), Post.id.desc())
+        .limit(max(1, min(200, int(limit))))
+    ).scalars().all()
+    return [{
+        "id": p.id,
+        "original_url": p.original_url,
+        "title": p.title or "",
+        "account_name": p.account_name or "",
+        "publish_time": p.publish_time.isoformat() + "Z" if p.publish_time else None,
+    } for p in rows]
+
+
+def set_wechat_content(db, post_id=None, url=None, content_html="",
+                       content=None, pics=None):
+    """用插件抓到的全文覆盖某篇公众号文章的 content_html（权威全文）。
+    优先按 id 定位，否则按 dedup_key（wechat:sn）定位。返回 {ok, updated, id}。"""
+    html = (content_html or "").strip()
+    if not html:
+        return {"ok": 0, "updated": 0, "id": None, "reason": "empty content_html"}
+
+    post = None
+    if post_id is not None:
+        post = db.get(Post, int(post_id))
+    if post is None and url:
+        sn = adapters._wx_sn(url)
+        canon = adapters.canonical_wechat_url(url)
+        key = adapters.make_dedup_key("wechat", sn, canon)
+        post = db.execute(select(Post).where(Post.dedup_key == key)).scalar_one_or_none()
+    if post is None:
+        return {"ok": 0, "updated": 0, "id": None, "reason": "not found"}
+
+    post.content_html = html
+    post.content = content if content is not None else adapters.strip_html(html)
+    if pics and not _loads(post.media_urls, []):
+        post.media_urls = json.dumps([p for p in pics if p], ensure_ascii=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return {"ok": 0, "updated": 0, "id": post.id, "reason": "commit failed"}
+    return {"ok": 1, "updated": 1, "id": post.id}

@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, Depends, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN
+from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN, WX_FULL_MIN
 from .db import get_db, init_db
 from . import adapters, crud, wemp_sync
 
@@ -98,6 +98,33 @@ async def sync_wemp(_=Depends(_check_token)):
     """手动触发一次 we-mp-rss 全量拉取+入库（存量+增量）。
     用 INGEST_TOKEN 保护（设了就要带 X-Ingest-Token）。返回拉取统计。"""
     return {"ok": 1, **(await wemp_sync.run_sync_async())}
+
+
+@app.get("/api/wechat/pending")
+def api_wechat_pending(limit: int = 50, db: Session = Depends(get_db), _=Depends(_check_token)):
+    """列出缺全文的公众号文章，交插件打开 mp.weixin 读 #js_content 补正文。
+    用 INGEST_TOKEN 保护（与 /ingest 一致）。"""
+    return {"ok": 1, "items": crud.wechat_pending(db, limit=limit, min_len=WX_FULL_MIN)}
+
+
+@app.post("/api/wechat/content")
+async def api_wechat_content(request: Request, db: Session = Depends(get_db), _=Depends(_check_token)):
+    """接收插件回传的公众号全文，覆盖 content_html（权威全文）。
+    body: {id?, url?, content_html, content?, pics?}"""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid JSON body")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expect object")
+    return crud.set_wechat_content(
+        db,
+        post_id=body.get("id"),
+        url=body.get("url") or body.get("original_url"),
+        content_html=body.get("content_html") or body.get("contentHtml") or "",
+        content=body.get("content"),
+        pics=body.get("pics") or body.get("media_urls"),
+    )
 
 
 @app.get("/api/posts")

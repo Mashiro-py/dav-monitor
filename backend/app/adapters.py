@@ -101,6 +101,7 @@ def _from_plugin(obj: dict, src: str) -> dict:
         "author_url": author_url,
         "title": obj.get("title") or "",
         "content": obj.get("content") or "",
+        "content_html": obj.get("contentHtml") or obj.get("content_html") or "",
         "publish_time": parse_dt(obj.get("publishDate") or obj.get("publish_time")),
         "original_url": url,
         "platform_post_id": pid or None,

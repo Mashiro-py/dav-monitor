@@ -13,7 +13,8 @@ class Post(Base):
     author_name = Column(Text)
     author_url = Column(Text)
     title = Column(Text)
-    content = Column(Text)
+    content = Column(Text)                                      # 纯文本（列表预览/搜索）
+    content_html = Column(Text)                                 # 富文本 HTML（详情图文展示）
     publish_time = Column(DateTime, index=True)                # UTC
     collect_time = Column(DateTime, nullable=False)            # UTC
     original_url = Column(Text, nullable=False)

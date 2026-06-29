@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS posts (
   author_name       TEXT,
   author_url        TEXT,
   title             TEXT,
-  content           TEXT,
+  content           TEXT,                              -- 纯文本（列表预览/搜索）
+  content_html      TEXT,                              -- 富文本 HTML（详情展示）
   publish_time      DATETIME,                          -- UTC
   collect_time      DATETIME NOT NULL,                 -- UTC，服务端写入
   original_url      TEXT    NOT NULL,

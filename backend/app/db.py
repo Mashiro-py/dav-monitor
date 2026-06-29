@@ -19,6 +19,29 @@ def get_db():
 
 
 def init_db():
-    """建表（幂等）。对应 sql/schema.sql。"""
+    """建表（幂等）+ 轻量迁移。对应 sql/schema.sql。"""
     from . import models  # noqa: F401  确保模型已注册
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)   # 只新建缺失的表，不动已存在表的数据
+    _migrate()
+
+
+def _migrate():
+    """为老库补新列（不丢数据）。SQLite 的 ALTER TABLE ADD COLUMN 是非破坏性的。"""
+    add_cols = [("content_html", "TEXT")]
+    try:
+        with engine.connect() as conn:
+            if DB_URL.startswith("sqlite"):
+                existing = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(posts)").fetchall()]
+                for name, typ in add_cols:
+                    if name not in existing:
+                        conn.exec_driver_sql(f"ALTER TABLE posts ADD COLUMN {name} {typ}")
+                conn.commit()
+            else:
+                for name, typ in add_cols:
+                    try:
+                        conn.exec_driver_sql(f"ALTER TABLE posts ADD COLUMN {name} {typ}")
+                        conn.commit()
+                    except Exception:
+                        pass  # 列已存在等
+    except Exception:
+        pass

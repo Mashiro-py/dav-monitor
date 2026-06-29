@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, Depends, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN, WX_FULL_MIN
+from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN
 from .db import get_db, init_db
 from . import adapters, crud, wemp_sync
 
@@ -101,13 +101,12 @@ async def sync_wemp(_=Depends(_check_token)):
 
 
 @app.get("/api/wechat/pending")
-def api_wechat_pending(limit: int = 50, min_len: int = None,
+def api_wechat_pending(limit: int = 50, all: bool = False,
                        db: Session = Depends(get_db), _=Depends(_check_token)):
-    """列出缺全文的公众号文章，交插件打开 mp.weixin 读 #js_content 补正文。
-    min_len 可覆盖判定阈值（传很大的值=把已采过的也重新列出，用于一次性重抓覆盖）。
-    用 INGEST_TOKEN 保护（与 /ingest 一致）。"""
-    ml = WX_FULL_MIN if min_len is None else max(1, int(min_len))
-    return {"ok": 1, "items": crud.wechat_pending(db, limit=limit, min_len=ml)}
+    """列出待补正文的公众号文章，交插件打开 mp.weixin 读 #js_content 补正文。
+    默认只列未采过全文的(wx_full=0/NULL)；all=true 则连已采过的也列出
+    （用于一次性重抓覆盖历史截断数据）。用 INGEST_TOKEN 保护（与 /ingest 一致）。"""
+    return {"ok": 1, "items": crud.wechat_pending(db, limit=limit, include_done=all)}
 
 
 @app.post("/api/wechat/content")

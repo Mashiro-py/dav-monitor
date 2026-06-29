@@ -27,7 +27,7 @@ def init_db():
 
 def _migrate():
     """为老库补新列（不丢数据）。SQLite 的 ALTER TABLE ADD COLUMN 是非破坏性的。"""
-    add_cols = [("content_html", "TEXT")]
+    add_cols = [("content_html", "TEXT"), ("wx_full", "INTEGER DEFAULT 0")]
     try:
         with engine.connect() as conn:
             if DB_URL.startswith("sqlite"):

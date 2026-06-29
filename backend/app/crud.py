@@ -186,16 +186,17 @@ def DB_IS_SQLITE():
 
 # ===== 公众号正文补全（插件读 #js_content 富文本 → 覆盖摘要级 content_html） =====
 
-def wechat_pending(db, limit=50, min_len=800):
-    """返回缺全文的公众号文章：source=wechat、是 mp.weixin 文章链接、
-    且 content_html 为空或长度 < min_len（只有摘要）。按发布时间倒序。"""
-    too_short = or_(Post.content_html.is_(None),
-                    func.length(Post.content_html) < min_len)
+def wechat_pending(db, limit=50, include_done=False):
+    """返回待补正文的公众号文章：source=wechat、是 mp.weixin 文章链接。
+    默认只列"未采过全文"的（wx_full 为 0/NULL）；include_done=True 则全部列出
+    （用于一次性重抓覆盖历史截断数据）。按发布时间倒序。"""
+    conds = [Post.source == "wechat",
+             Post.original_url.like("%mp.weixin.qq.com/s%")]
+    if not include_done:
+        conds.append(or_(Post.wx_full.is_(None), Post.wx_full == 0))
     rows = db.execute(
         select(Post)
-        .where(and_(Post.source == "wechat",
-                    Post.original_url.like("%mp.weixin.qq.com/s%"),
-                    too_short))
+        .where(and_(*conds))
         .order_by(Post.publish_time.desc().nullslast(), Post.id.desc())
         .limit(max(1, min(200, int(limit))))
     ).scalars().all()
@@ -229,6 +230,7 @@ def set_wechat_content(db, post_id=None, url=None, content_html="",
 
     post.content_html = html
     post.content = content if content is not None else adapters.strip_html(html)
+    post.wx_full = 1   # 标记已采过全文，之后不再进 pending 队列（短文也只采一次）
     if pics and not _loads(post.media_urls, []):
         post.media_urls = json.dumps([p for p in pics if p], ensure_ascii=False)
     try:

@@ -8,10 +8,10 @@ const barEl = ref(null)
 let ring = null, bar = null
 
 const SENT = {
-  positive: { label: '正面', color: '#3ad07a' },
-  negative: { label: '负面', color: '#f0664f' },
-  neutral: { label: '中性', color: '#e0a83a' },
-  unknown: { label: '未分析', color: '#5b6479' },
+  positive: { label: '正面', color: '#16a34a' },
+  negative: { label: '负面', color: '#e11d48' },
+  neutral: { label: '中性', color: '#f59e0b' },
+  unknown: { label: '未分析', color: '#94a3b8' },
 }
 const srcLabel = { weibo: '微博', x: 'X', wechat: '公众号' }
 
@@ -23,11 +23,11 @@ function render() {
   if (ring) {
     ring.setOption({
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle: { color: '#8b93a7' } },
+      legend: { bottom: 0, textStyle: { color: '#6b7790' } },
       series: [{
         type: 'pie', radius: ['45%', '70%'], center: ['50%', '44%'],
-        label: { color: '#e6e8ef' },
-        data: ringData.length ? ringData : [{ name: '暂无', value: 1, itemStyle: { color: '#2a3146' } }],
+        label: { color: '#1e2a44' },
+        data: ringData.length ? ringData : [{ name: '暂无', value: 1, itemStyle: { color: '#e2e8f0' } }],
       }],
     }, true)
   }
@@ -37,11 +37,11 @@ function render() {
     bar.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: 60, right: 16, top: 10, bottom: 24 },
-      xAxis: { type: 'value', axisLabel: { color: '#8b93a7' }, splitLine: { lineStyle: { color: '#1e2438' } } },
-      yAxis: { type: 'category', data: keys.map(k => srcLabel[k]), axisLabel: { color: '#8b93a7' } },
+      xAxis: { type: 'value', axisLabel: { color: '#6b7790' }, splitLine: { lineStyle: { color: '#eef0f5' } } },
+      yAxis: { type: 'category', data: keys.map(k => srcLabel[k]), axisLabel: { color: '#6b7790' } },
       series: [{
         type: 'bar', barWidth: 16,
-        itemStyle: { color: '#4da3ff', borderRadius: [0, 6, 6, 0] },
+        itemStyle: { color: '#2563eb', borderRadius: [0, 6, 6, 0] },
         data: keys.map(k => bsrc[k] || 0),
       }],
     }, true)

@@ -48,7 +48,7 @@ function safeHtml(html) {
       <div v-for="p in items" :key="p.id" class="post clickable" @click="openDetail(p)">
         <div class="meta">
           <span class="tag" :class="p.source">{{ srcLabel[p.source] || p.source }}</span>
-          <strong style="color:#cdd3e2">{{ p.account_name }}</strong>
+          <strong style="color:#1e2a44">{{ p.account_name }}</strong>
           <span>{{ fmt(p.publish_time) }}</span>
           <span v-if="p.stats">👍{{ p.stats.likes || 0 }} 💬{{ p.stats.comments || 0 }} 🔁{{ p.stats.reposts || 0 }}</span>
           <span :class="sclass(p.sentiment)">● {{ sentLabel[p.sentiment || 'unknown'] }}</span>
@@ -68,7 +68,7 @@ function safeHtml(html) {
       <div v-for="p in items" :key="p.id" class="post clickable" @click="openDetail(p)">
         <div class="meta">
           <span class="tag" :class="p.source">{{ srcLabel[p.source] || p.source }}</span>
-          <strong style="color:#cdd3e2">{{ p.account_name }}</strong>
+          <strong style="color:#1e2a44">{{ p.account_name }}</strong>
           <span :class="sclass(p.sentiment)">● {{ sentLabel[p.sentiment || 'unknown'] }}</span>
         </div>
         <div class="body">{{ (p.content || '').slice(0, 120) }}</div>
@@ -117,23 +117,24 @@ function safeHtml(html) {
 
 <style scoped>
 .post.clickable { cursor: pointer; }
-.post.clickable:hover { background: #1a1f2e; }
+.post.clickable:hover { background: #f5f8fd; }
 .row-ft { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
-.row-ft .more { color: #6fb3ff; font-size: 12px; }
+.row-ft .more { color: #2563eb; font-size: 12px; }
 
-.detail-mask { position: fixed; inset: 0; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
-.detail-box { background: #171c2c; border: 1px solid #2a3146; border-radius: 12px; max-width: 760px; width: 100%; max-height: 86vh; overflow: auto; padding: 18px 20px; }
+.detail-mask { position: fixed; inset: 0; background: rgba(30, 42, 68, .45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.detail-box { background: #ffffff; border: 1px solid #d9e2ef; border-radius: 12px; max-width: 760px; width: 100%; max-height: 86vh; overflow: auto; padding: 18px 20px; box-shadow: 0 10px 30px rgba(30,42,68,.15); }
 .detail-hd { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
-.detail-hd button { background: none; border: none; color: #8b93a7; font-size: 18px; cursor: pointer; }
-.dim { color: #8b93a7; font-size: 12px; margin-left: 8px; }
-.detail-title { font-size: 18px; font-weight: 700; margin: 6px 0 12px; line-height: 1.4; }
-.detail-body { line-height: 1.85; color: #d7dce7; font-size: 15px; }
+.detail-hd strong { color: #1e2a44; }
+.detail-hd button { background: none; border: none; color: #6b7790; font-size: 18px; cursor: pointer; }
+.dim { color: #6b7790; font-size: 12px; margin-left: 8px; }
+.detail-title { font-size: 18px; font-weight: 700; margin: 6px 0 12px; line-height: 1.4; color: #1e2a44; }
+.detail-body { line-height: 1.85; color: #2b3650; font-size: 15px; }
 .detail-body.plain { white-space: pre-wrap; }
 .detail-ft { margin-top: 16px; }
-.detail-ft a { color: #4da3ff; }
+.detail-ft a { color: #2563eb; }
 /* v-html 注入内容需 :deep() 才能命中 */
 .rich :deep(img) { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; }
-.rich :deep(a) { color: #4da3ff; word-break: break-all; }
+.rich :deep(a) { color: #2563eb; word-break: break-all; }
 .rich :deep(p) { margin: 8px 0; }
 .rich :deep(video) { max-width: 100%; }
 </style>

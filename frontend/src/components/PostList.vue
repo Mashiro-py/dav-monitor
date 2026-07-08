@@ -56,6 +56,8 @@ function safeHtml(html) {
       <div v-for="p in items" :key="p.id" class="post clickable" @click="openDetail(p)">
         <div class="meta">
           <span class="tag" :class="p.source">{{ srcLabel[p.source] || p.source }}</span>
+          <span v-if="p.content_status === 'full'" class="wx-st full" title="插件已补权威全文">✅全文</span>
+          <span v-else-if="p.content_status === 'summary_only'" class="wx-st part" title="仅RSS摘要，待插件补全">○摘要</span>
           <strong style="color:#1e2a44">{{ p.account_name }}</strong>
           <span>{{ fmt(p.publish_time) }}</span>
           <span v-if="p.stats">👍{{ p.stats.likes || 0 }} 💬{{ p.stats.comments || 0 }} 🔁{{ p.stats.reposts || 0 }}</span>
@@ -108,6 +110,8 @@ function safeHtml(html) {
       <div class="detail-hd">
         <div>
           <span class="tag" :class="selected.source">{{ srcLabel[selected.source] || selected.source }}</span>
+          <span v-if="selected.content_status === 'full'" class="wx-st full">✅全文</span>
+          <span v-else-if="selected.content_status === 'summary_only'" class="wx-st part">○摘要</span>
           <strong>{{ selected.account_name }}</strong>
           <span class="dim">{{ fmt(selected.publish_time) }}</span>
         </div>
@@ -125,6 +129,10 @@ function safeHtml(html) {
 
 <style scoped>
 .post.clickable { cursor: pointer; }
+/* 公众号采集状态小标签：已补全文(绿) / 仅摘要(灰) */
+.wx-st { font-size: 11px; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
+.wx-st.full { color: #15803d; background: #dcfce7; }
+.wx-st.part { color: #6b7790; background: #eef2f7; }
 .post.clickable:hover { background: #f5f8fd; }
 .row-ft { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
 .row-ft .more { color: #2563eb; font-size: 12px; }

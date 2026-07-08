@@ -105,8 +105,9 @@ def api_wechat_pending(limit: int = 50, all: bool = False,
                        db: Session = Depends(get_db), _=Depends(_check_token)):
     """列出待补正文的公众号文章，交插件打开 mp.weixin 读 #js_content 补正文。
     默认只列未采过全文的(wx_full=0/NULL)；all=true 则连已采过的也列出
-    （用于一次性重抓覆盖历史截断数据）。用 INGEST_TOKEN 保护（与 /ingest 一致）。"""
-    return {"ok": 1, "items": crud.wechat_pending(db, limit=limit, include_done=all)}
+    （用于一次性重抓覆盖历史截断数据）。用 INGEST_TOKEN 保护（与 /ingest 一致）。
+    响应含 total（总积压数，供插件动态调档）与 done（已补全文数，供进度展示）。"""
+    return {"ok": 1, **crud.wechat_pending(db, limit=limit, include_done=all)}
 
 
 @app.post("/api/wechat/content")

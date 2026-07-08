@@ -38,6 +38,9 @@ def post_to_dict(p: Post) -> dict:
         "stats": _loads(p.stats, {}),
         "sentiment": p.sentiment,
         "keywords": _loads(p.keywords, None),
+        # 公众号采集状态：full=插件已补权威全文；summary_only=仅RSS摘要级。非公众号为 None
+        "content_status": (("full" if p.wx_full == 1 else "summary_only")
+                           if p.source == "wechat" else None),
     }
 
 
@@ -170,12 +173,23 @@ def get_stats(db) -> dict:
         trend.setdefault(day, {}).setdefault(src, 0)
         trend[day][src] += cnt
 
+    # 公众号全文补采进度（done=插件已补权威全文，total=全部 mp.weixin 文章）
+    wx_conds = [Post.source == "wechat",
+                Post.original_url.like("%mp.weixin.qq.com/s%")]
+    wx_total = db.execute(
+        select(func.count()).select_from(Post).where(and_(*wx_conds))).scalar() or 0
+    wx_done = db.execute(
+        select(func.count()).select_from(Post)
+        .where(and_(*wx_conds, Post.wx_full == 1))).scalar() or 0
+
     return {
         "total": total,
         "today_total": today_total,
         "by_source": by_source,
         "by_sentiment": by_sentiment,
         "trend": trend,
+        "wx_fulltext": {"done": wx_done, "total": wx_total,
+                        "pending": wx_total - wx_done},
     }
 
 
@@ -189,9 +203,12 @@ def DB_IS_SQLITE():
 def wechat_pending(db, limit=50, include_done=False):
     """返回待补正文的公众号文章：source=wechat、是 mp.weixin 文章链接。
     默认只列"未采过全文"的（wx_full 为 0/NULL）；include_done=True 则全部列出
-    （用于一次性重抓覆盖历史截断数据）。按发布时间倒序。"""
-    conds = [Post.source == "wechat",
-             Post.original_url.like("%mp.weixin.qq.com/s%")]
+    （用于一次性重抓覆盖历史截断数据）。按发布时间倒序。
+    返回 {items, total, done}：total=符合条件的总积压数（不受 limit 截断，供插件按
+    积压量动态调档）、done=已补全文篇数（供进度展示）。"""
+    base_conds = [Post.source == "wechat",
+                  Post.original_url.like("%mp.weixin.qq.com/s%")]
+    conds = list(base_conds)
     if not include_done:
         conds.append(or_(Post.wx_full.is_(None), Post.wx_full == 0))
     rows = db.execute(
@@ -200,13 +217,22 @@ def wechat_pending(db, limit=50, include_done=False):
         .order_by(Post.publish_time.desc().nullslast(), Post.id.desc())
         .limit(max(1, min(200, int(limit))))
     ).scalars().all()
-    return [{
-        "id": p.id,
-        "original_url": p.original_url,
-        "title": p.title or "",
-        "account_name": p.account_name or "",
-        "publish_time": p.publish_time.isoformat() + "Z" if p.publish_time else None,
-    } for p in rows]
+    total = db.execute(
+        select(func.count()).select_from(Post).where(and_(*conds))).scalar() or 0
+    done = db.execute(
+        select(func.count()).select_from(Post)
+        .where(and_(*base_conds, Post.wx_full == 1))).scalar() or 0
+    return {
+        "items": [{
+            "id": p.id,
+            "original_url": p.original_url,
+            "title": p.title or "",
+            "account_name": p.account_name or "",
+            "publish_time": p.publish_time.isoformat() + "Z" if p.publish_time else None,
+        } for p in rows],
+        "total": total,
+        "done": done,
+    }
 
 
 def set_wechat_content(db, post_id=None, url=None, content_html="",

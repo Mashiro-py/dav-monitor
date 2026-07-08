@@ -24,7 +24,7 @@ const wx = computed(() => props.stats.wx_fulltext || null)
       <div class="sub">
         <span class="tag" :class="s.key">{{ s.label }}</span>
         <span v-if="s.key === 'wechat' && wx && wx.total" class="wx-progress"
-              :title="`已补全文 ${wx.done} 篇，待补 ${wx.pending} 篇`">全文 {{ wx.done }}/{{ wx.total }}</span>
+              :title="`已补全文 ${wx.done} 篇，待补 ${wx.pending} 篇` + (wx.dead ? `，失效 ${wx.dead} 篇（不再采集）` : '')">全文 {{ wx.done }}/{{ wx.total }}</span>
       </div>
     </div>
   </div>

@@ -24,6 +24,6 @@ class Post(Base):
     raw_json = Column(Text)                                     # JSON
     sentiment = Column(Text, index=True)                       # positive/negative/neutral/None
     keywords = Column(Text)                                     # JSON array / None
-    wx_full = Column(Integer, default=0, index=True)           # 公众号正文是否已由插件完整采过(1=已采)
+    wx_full = Column(Integer, default=0, index=True)           # 公众号正文采集状态：0/NULL=待采 1=已补全文 2=已失效(删除/违规/仅客户端，不再采)
     dedup_key = Column(Text, nullable=False, unique=True, index=True)
     created_at = Column(DateTime, nullable=False)

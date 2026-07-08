@@ -38,8 +38,9 @@ def post_to_dict(p: Post) -> dict:
         "stats": _loads(p.stats, {}),
         "sentiment": p.sentiment,
         "keywords": _loads(p.keywords, None),
-        # 公众号采集状态：full=插件已补权威全文；summary_only=仅RSS摘要级。非公众号为 None
-        "content_status": (("full" if p.wx_full == 1 else "summary_only")
+        # 公众号采集状态：full=插件已补权威全文；dead=文章已失效（删除/违规/仅客户端可见，
+        # 不再采集）；summary_only=仅RSS摘要级。非公众号为 None
+        "content_status": ({1: "full", 2: "dead"}.get(p.wx_full, "summary_only")
                            if p.source == "wechat" else None),
     }
 
@@ -173,7 +174,7 @@ def get_stats(db) -> dict:
         trend.setdefault(day, {}).setdefault(src, 0)
         trend[day][src] += cnt
 
-    # 公众号全文补采进度（done=插件已补权威全文，total=全部 mp.weixin 文章）
+    # 公众号全文补采进度（done=插件已补权威全文，dead=已失效不可采，total=全部 mp.weixin 文章）
     wx_conds = [Post.source == "wechat",
                 Post.original_url.like("%mp.weixin.qq.com/s%")]
     wx_total = db.execute(
@@ -181,6 +182,9 @@ def get_stats(db) -> dict:
     wx_done = db.execute(
         select(func.count()).select_from(Post)
         .where(and_(*wx_conds, Post.wx_full == 1))).scalar() or 0
+    wx_dead = db.execute(
+        select(func.count()).select_from(Post)
+        .where(and_(*wx_conds, Post.wx_full == 2))).scalar() or 0
 
     return {
         "total": total,
@@ -188,8 +192,8 @@ def get_stats(db) -> dict:
         "by_source": by_source,
         "by_sentiment": by_sentiment,
         "trend": trend,
-        "wx_fulltext": {"done": wx_done, "total": wx_total,
-                        "pending": wx_total - wx_done},
+        "wx_fulltext": {"done": wx_done, "total": wx_total, "dead": wx_dead,
+                        "pending": wx_total - wx_done - wx_dead},
     }
 
 
@@ -211,6 +215,9 @@ def wechat_pending(db, limit=50, include_done=False):
     conds = list(base_conds)
     if not include_done:
         conds.append(or_(Post.wx_full.is_(None), Post.wx_full == 0))
+    else:
+        # 重抓模式也不列已失效的（wx_full=2，打开也采不到）
+        conds.append(or_(Post.wx_full.is_(None), Post.wx_full != 2))
     rows = db.execute(
         select(Post)
         .where(and_(*conds))
@@ -235,14 +242,8 @@ def wechat_pending(db, limit=50, include_done=False):
     }
 
 
-def set_wechat_content(db, post_id=None, url=None, content_html="",
-                       content=None, pics=None):
-    """用插件抓到的全文覆盖某篇公众号文章的 content_html（权威全文）。
-    优先按 id 定位，否则按 dedup_key（wechat:sn）定位。返回 {ok, updated, id}。"""
-    html = (content_html or "").strip()
-    if not html:
-        return {"ok": 0, "updated": 0, "id": None, "reason": "empty content_html"}
-
+def _locate_wechat_post(db, post_id=None, url=None):
+    """定位公众号文章：优先按 id，否则按 URL 的 dedup_key（wechat:sn）。"""
     post = None
     if post_id is not None:
         post = db.get(Post, int(post_id))
@@ -251,6 +252,18 @@ def set_wechat_content(db, post_id=None, url=None, content_html="",
         canon = adapters.canonical_wechat_url(url)
         key = adapters.make_dedup_key("wechat", sn, canon)
         post = db.execute(select(Post).where(Post.dedup_key == key)).scalar_one_or_none()
+    return post
+
+
+def set_wechat_content(db, post_id=None, url=None, content_html="",
+                       content=None, pics=None):
+    """用插件抓到的全文覆盖某篇公众号文章的 content_html（权威全文）。
+    优先按 id 定位，否则按 dedup_key（wechat:sn）定位。返回 {ok, updated, id}。"""
+    html = (content_html or "").strip()
+    if not html:
+        return {"ok": 0, "updated": 0, "id": None, "reason": "empty content_html"}
+
+    post = _locate_wechat_post(db, post_id=post_id, url=url)
     if post is None:
         return {"ok": 0, "updated": 0, "id": None, "reason": "not found"}
 
@@ -265,3 +278,18 @@ def set_wechat_content(db, post_id=None, url=None, content_html="",
         db.rollback()
         return {"ok": 0, "updated": 0, "id": post.id, "reason": "commit failed"}
     return {"ok": 1, "updated": 1, "id": post.id}
+
+
+def mark_wechat_dead(db, post_id=None, url=None, reason=None):
+    """插件判定文章页已永久失效（被删除/违规屏蔽/账号迁移/仅客户端可见等）→ wx_full=2，
+    永久退出 pending 队列，不再占用采集名额。reason 仅回显给插件日志，不入库。"""
+    post = _locate_wechat_post(db, post_id=post_id, url=url)
+    if post is None:
+        return {"ok": 0, "updated": 0, "id": None, "reason": "not found"}
+    post.wx_full = 2
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return {"ok": 0, "updated": 0, "id": post.id, "reason": "commit failed"}
+    return {"ok": 1, "updated": 1, "id": post.id, "dead": 1, "reason": reason or ""}

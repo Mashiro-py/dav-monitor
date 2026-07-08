@@ -57,6 +57,7 @@ function safeHtml(html) {
         <div class="meta">
           <span class="tag" :class="p.source">{{ srcLabel[p.source] || p.source }}</span>
           <span v-if="p.content_status === 'full'" class="wx-st full" title="插件已补权威全文">✅全文</span>
+          <span v-else-if="p.content_status === 'dead'" class="wx-st dead" title="文章已失效（删除/违规/仅客户端可见），不再采集">✖失效</span>
           <span v-else-if="p.content_status === 'summary_only'" class="wx-st part" title="仅RSS摘要，待插件补全">○摘要</span>
           <strong style="color:#1e2a44">{{ p.account_name }}</strong>
           <span>{{ fmt(p.publish_time) }}</span>
@@ -111,6 +112,7 @@ function safeHtml(html) {
         <div>
           <span class="tag" :class="selected.source">{{ srcLabel[selected.source] || selected.source }}</span>
           <span v-if="selected.content_status === 'full'" class="wx-st full">✅全文</span>
+          <span v-else-if="selected.content_status === 'dead'" class="wx-st dead">✖失效</span>
           <span v-else-if="selected.content_status === 'summary_only'" class="wx-st part">○摘要</span>
           <strong>{{ selected.account_name }}</strong>
           <span class="dim">{{ fmt(selected.publish_time) }}</span>
@@ -133,6 +135,7 @@ function safeHtml(html) {
 .wx-st { font-size: 11px; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
 .wx-st.full { color: #15803d; background: #dcfce7; }
 .wx-st.part { color: #6b7790; background: #eef2f7; }
+.wx-st.dead { color: #b91c1c; background: #fee2e2; }
 .post.clickable:hover { background: #f5f8fd; }
 .row-ft { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
 .row-ft .more { color: #2563eb; font-size: 12px; }

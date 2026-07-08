@@ -113,13 +113,22 @@ def api_wechat_pending(limit: int = 50, all: bool = False,
 @app.post("/api/wechat/content")
 async def api_wechat_content(request: Request, db: Session = Depends(get_db), _=Depends(_check_token)):
     """接收插件回传的公众号全文，覆盖 content_html（权威全文）。
-    body: {id?, url?, content_html, content?, pics?}"""
+    body: {id?, url?, content_html, content?, pics?}
+    或死链标记 {id?, url?, dead: true, reason?}：插件判定文章页已永久失效
+    （删除/违规/仅客户端可见），置 wx_full=2 永久退出 pending。"""
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="invalid JSON body")
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="expect object")
+    if body.get("dead"):
+        return crud.mark_wechat_dead(
+            db,
+            post_id=body.get("id"),
+            url=body.get("url") or body.get("original_url"),
+            reason=body.get("reason"),
+        )
     return crud.set_wechat_content(
         db,
         post_id=body.get("id"),

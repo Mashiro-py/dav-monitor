@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.exc import IntegrityError
 
-from .models import Post
+from .models import Post, Analysis
 from . import adapters
 
 
@@ -186,6 +186,16 @@ def get_stats(db) -> dict:
         select(func.count()).select_from(Post)
         .where(and_(*wx_conds, Post.wx_full == 2))).scalar() or 0
 
+    # 最新一次 AI 分析的中文总结 → 填给前端"报告"页的 ai_summary 占位
+    ai_summary = ""
+    try:
+        latest = db.execute(
+            select(Analysis).order_by(Analysis.id.desc()).limit(1)).scalar_one_or_none()
+        if latest:
+            ai_summary = (json.loads(latest.result_json).get("summary") or {}).get("zh", "")
+    except Exception:
+        pass
+
     return {
         "total": total,
         "today_total": today_total,
@@ -194,6 +204,7 @@ def get_stats(db) -> dict:
         "trend": trend,
         "wx_fulltext": {"done": wx_done, "total": wx_total, "dead": wx_dead,
                         "pending": wx_total - wx_done - wx_dead},
+        "ai_summary": ai_summary,
     }
 
 

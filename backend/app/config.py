@@ -22,6 +22,19 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANALYZE_MODEL = os.getenv("ANALYZE_MODEL", "claude-haiku-4-5-20251001").strip()
 
+# ===== AI 热点态势分析（DeepSeek） =====
+# ⚠️ API key 的唯一存放位置：服务器上 dav-monitor/deploy/.env 文件里加一行
+#       DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
+#    （backend-compose.yml 会把它注入后端容器；严禁写进前端代码/前端容器/任何响应体）
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
+# DeepSeek OpenAI 兼容接口基址与模型（官方：POST {BASE}/chat/completions，Bearer 鉴权）
+DEEPSEEK_BASE = os.getenv("DEEPSEEK_BASE", "https://api.deepseek.com").strip().rstrip("/")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+ANALYSIS_HOURS = int(os.getenv("ANALYSIS_HOURS", "24"))            # 每次分析覆盖最近多少小时
+ANALYSIS_AUTO_HOUR = int(os.getenv("ANALYSIS_AUTO_HOUR", "8"))     # 每天自动分析的小时（北京时间，分钟取 20~40 随机）
+ANALYSIS_AUTO_ENABLED = os.getenv("ANALYSIS_AUTO_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+ANALYSIS_MANUAL_LIMIT = int(os.getenv("ANALYSIS_MANUAL_LIMIT", "10"))  # 手动分析每自然日上限（自动的1次不占用）
+
 # ===== we-mp-rss 主动拉取同步 =====
 # 要遍历的 we-mp-rss 实例基址（逗号分隔）。容器内经宿主 IP 可达。
 WEMP_INSTANCES = [u.strip().rstrip("/") for u in os.getenv(

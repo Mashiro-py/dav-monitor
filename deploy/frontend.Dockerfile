@@ -14,6 +14,8 @@ RUN npm run build
 
 # ---------- 托管阶段 ----------
 FROM nginx:1.27-alpine
-COPY deploy/frontend-nginx.conf /etc/nginx/conf.d/default.conf
+# 放进 templates/：官方镜像启动时 envsubst 替换 ${INGEST_TOKEN} 后生成 conf.d/default.conf，
+# 实现"nginx 服务端注入 X-Ingest-Token"（token 不进前端代码、浏览器不可见）
+COPY deploy/frontend-nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

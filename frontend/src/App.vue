@@ -42,7 +42,7 @@ onBeforeUnmount(() => timer && clearInterval(timer))
     <SentimentChart :stats="stats" />
   </div>
 
-  <div style="margin-top:14px"><SummaryCard :stats="stats" /></div>
+  <div style="margin-top:14px"><SummaryCard /></div>
 
   <div style="margin-top:14px"><FiltersBar @change="onFilter" /></div>
 

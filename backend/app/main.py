@@ -8,9 +8,9 @@ from fastapi import FastAPI, Request, Depends, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN
+from .config import CORS_ORIGINS, INGEST_TOKEN, WEMP_TOKEN, ANALYSIS_MANUAL_LIMIT
 from .db import get_db, init_db
-from . import adapters, crud, wemp_sync
+from . import adapters, crud, wemp_sync, analysis
 
 app = FastAPI(title="大V动态统一后端", version="1.0")
 
@@ -30,6 +30,8 @@ init_db()
 async def _startup():
     # 启动 we-mp-rss 定时拉取（TestClient 不触发 startup，不影响测试）
     wemp_sync.start_scheduler()
+    # 启动每日 AI 态势分析（未配 DEEPSEEK_API_KEY 时自动不启用）
+    analysis.start_scheduler()
 
 
 def _check_token(x_ingest_token: str = Header(default="")):
@@ -152,6 +154,43 @@ def api_posts(source: str = None, sentiment: str = None, keyword: str = None,
 @app.get("/api/stats")
 def api_stats(db: Session = Depends(get_db)):
     return crud.get_stats(db)
+
+
+# ===== AI 热点态势分析（DeepSeek） =====
+
+@app.post("/api/analysis/run")
+async def api_analysis_run(db: Session = Depends(get_db), _=Depends(_check_token)):
+    """触发一次手动分析。X-Ingest-Token 保护（前端经 nginx 服务端注入，浏览器不可见）。
+    手动配额 10 次/自然日（北京时间），失败不扣配额；同一时刻只允许一次分析。"""
+    if analysis.is_running():
+        raise HTTPException(status_code=409, detail="已有一次分析正在进行中，请稍候再试")
+    used = analysis.manual_used_today(db)
+    if used >= ANALYSIS_MANUAL_LIMIT:
+        raise HTTPException(status_code=429,
+                            detail=f"今日手动分析配额已用完（{used}/{ANALYSIS_MANUAL_LIMIT}），明日自动重置")
+    try:
+        result = await analysis.run_analysis(db, "manual")
+    except analysis.AnalysisError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"ok": 1, "analysis": result, "quota": analysis.quota_info(db)}
+
+
+@app.get("/api/analysis/latest")
+def api_analysis_latest(db: Session = Depends(get_db)):
+    """最新一次分析结果（无则 analysis=null）。"""
+    return {"ok": 1, "analysis": analysis.latest_analysis(db)}
+
+
+@app.get("/api/analysis/quota")
+def api_analysis_quota(db: Session = Depends(get_db)):
+    """今日手动配额：{used, limit, remaining, last_run_at, running}。"""
+    return {"ok": 1, **analysis.quota_info(db)}
+
+
+@app.get("/api/analysis/history")
+def api_analysis_history(limit: int = 30, db: Session = Depends(get_db)):
+    """往期分析记录（新→旧，默认 30 条）。"""
+    return {"ok": 1, "items": analysis.history(db, limit=limit)}
 
 
 @app.get("/health")

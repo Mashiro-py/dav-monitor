@@ -25,6 +25,12 @@ services:
       INGEST_TOKEN: "${INGEST_TOKEN:-}"  # 留空=不校验；设了则【仅】/ingest（插件，公网）需带 X-Ingest-Token
       WEMP_TOKEN: "${WEMP_TOKEN:-}"      # 留空=不校验；公众号 webhook 独立 token，与 INGEST_TOKEN 互不影响
       CORS_ORIGINS: "${CORS_ORIGINS:-*}" # 前端跨域来源，默认放开
+      # ---- AI 热点态势分析（DeepSeek）----
+      # ⚠️ API key 写在本目录 deploy/.env 里：DEEPSEEK_API_KEY=sk-xxx（只进后端容器，严禁进前端）
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      DEEPSEEK_MODEL: "${DEEPSEEK_MODEL:-deepseek-chat}"
+      ANALYSIS_AUTO_HOUR: "${ANALYSIS_AUTO_HOUR:-8}"   # 每天自动分析的小时（北京时间，分钟随机 20~40）
+      ANALYSIS_HOURS: "${ANALYSIS_HOURS:-24}"          # 每次分析覆盖最近多少小时
     volumes:
       - dav_backend_data:/data           # 数据库持久化
     healthcheck:

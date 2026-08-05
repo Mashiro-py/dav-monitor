@@ -160,7 +160,7 @@ onBeforeUnmount(() => timer && clearInterval(timer))
 
       <!-- 📝 整体态势 -->
       <div class="sec">{{ L.overall }}</div>
-      <div class="summary">{{ t(result.summary) || '—' }}</div>
+      <div class="overall">{{ t(result.summary) || '—' }}</div>
     </template>
   </div>
 </template>
@@ -186,22 +186,28 @@ onBeforeUnmount(() => timer && clearInterval(timer))
 
 .meta-line { font-size: 12px; color: var(--muted); padding: 6px 0 2px; }
 
-.sec { font-size: 13px; font-weight: 700; color: var(--text); margin: 14px 0 8px; padding-top: 10px; border-top: 1px dashed var(--border); }
+/* 三个板块标题：加大字号，颜色随板块主色（蓝/琥珀/绿，与页面 tag 色系一致） */
+.sec { font-size: 16px; font-weight: 700; color: var(--text); margin: 16px 0 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
 .none { color: var(--muted); font-size: 13px; }
 
-.event { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+/* 🔥 热点事件：浅蓝卡片 + 蓝色左边条 */
+.event { background: var(--accent-soft); border: 1px solid #cfe0fb; border-left: 3px solid var(--accent); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
 .ev-hd { display: flex; align-items: baseline; gap: 8px; }
-.ev-title { font-weight: 600; color: var(--text); }
-.ev-cnt { font-size: 11px; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 8px; white-space: nowrap; }
+.ev-title { font-weight: 600; color: var(--text); font-size: 14px; }
+.ev-cnt { font-size: 11px; color: var(--accent); background: #fff; border: 1px solid #cfe0fb; padding: 1px 8px; border-radius: 8px; white-space: nowrap; }
 .ev-meta { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
 .chip { font-size: 11px; background: #fff; border: 1px solid var(--border); color: var(--muted); padding: 1px 8px; border-radius: 9px; }
-.ev-brief { color: #475068; line-height: 1.65; font-size: 13px; }
+.ev-brief { color: #475068; line-height: 1.7; font-size: 13px; }
 
-.opinion { padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.opinion:last-of-type { border-bottom: none; }
+/* 💬 主要观点：浅琥珀卡片 + 琥珀左边条 */
+.opinion { background: #fff9ec; border: 1px solid #f1e2c1; border-left: 3px solid var(--neu); border-radius: 10px; padding: 11px 14px; margin-bottom: 10px; font-size: 13px; }
+.opinion strong { font-size: 14px; }
 .op-acc { color: var(--muted); font-size: 12px; }
-.op-text { color: #475068; line-height: 1.65; margin-top: 3px; }
-.op-vs { color: var(--neg); font-size: 12px; margin-top: 4px; }
+.op-text { color: #475068; line-height: 1.7; margin-top: 4px; }
+.op-vs { color: var(--neg); font-size: 12px; margin-top: 5px; }
+
+/* 📝 整体态势：浅绿卡片 + 绿色左边条 */
+.overall { background: #e9f7ef; border: 1px solid #cde8d8; border-left: 3px solid var(--pos); border-radius: 10px; padding: 12px 14px; line-height: 1.8; font-size: 13.5px; color: #2b3650; }
 
 .summary { line-height: 1.75; }
 .summary .placeholder { color: var(--muted); font-style: italic; }
